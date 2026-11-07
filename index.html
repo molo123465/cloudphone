@@ -1,53 +1,412 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CloudPhone - Android en la Nube</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IziCloud PC - Tu Ordenador Virtual en la Nube</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-    body { background: #0b0f19; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 15px; }
-    h1 { font-size: 1.6rem; color: #38bdf8; margin-bottom: 5px; }
-    p.sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 15px; }
-    .mockup { position: relative; width: 300px; height: 600px; background: #000; border: 8px solid #1e293b; border-radius: 36px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
-    iframe { width: 100%; height: 100%; border: none; }
-    .timer { position: absolute; top: 12px; right: 12px; background: #ef4444; font-size: 0.75rem; font-weight: bold; padding: 4px 8px; border-radius: 12px; z-index: 10; }
-    .paywall { display: none; position: absolute; inset: 0; background: rgba(11, 15, 25, 0.95); flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; z-index: 20; }
-    .paywall.active { display: flex; }
-    .btn-buy { background: #10b981; color: #fff; padding: 12px 20px; border-radius: 8px; font-weight: bold; text-decoration: none; margin-top: 15px; display: inline-block; }
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --card-border: #1f2937;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --accent: #22c55e;
+      --danger: #ef4444;
+      --text: #f9fafb;
+      --text-muted: #9ca3af;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; padding: 25px 15px; }
+    .container { max-width: 1200px; margin: 0 auto; text-align: center; }
+
+    header h1 { font-size: 2.3rem; font-weight: 800; margin-bottom: 8px; }
+    header h1 span { color: var(--primary); }
+    header p { color: var(--text-muted); font-size: 1rem; margin-bottom: 25px; }
+
+    /* Barra de estado y cupones */
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px 20px;
+      margin-bottom: 25px;
+      gap: 15px;
+    }
+
+    .timer-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    .timer-badge span {
+      background: #1e293b;
+      color: #fbbf24;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 1.2rem;
+    }
+    .unlimited-badge {
+      display: none;
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+    }
+
+    .promo-box {
+      display: flex;
+      gap: 8px;
+    }
+    .promo-box input {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: white;
+      outline: none;
+    }
+    .promo-box input:focus { border-color: var(--primary); }
+    .promo-box button {
+      background: var(--primary);
+      border: none;
+      color: #04101e;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .promo-box button:hover { background: var(--primary-hover); color: white; }
+
+    /* Contenedor del PC virtual */
+    #pc-screen-container {
+      width: 100%;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--card-border);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      margin-bottom: 45px;
+      position: relative;
+    }
+    #vnc-frame {
+      width: 100%;
+      height: 700px;
+      border: none;
+      display: block;
+    }
+
+    /* Pantalla de bloqueo tras vencer los 5 min */
+    #lock-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(11, 15, 25, 0.95);
+      backdrop-filter: blur(8px);
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 10;
+    }
+    #lock-overlay h2 { font-size: 2rem; color: var(--danger); margin-bottom: 10px; }
+    #lock-overlay p { color: var(--text-muted); max-width: 500px; margin-bottom: 20px; }
+
+    /* Grid de Planes de dispositivos */
+    .plans-title { font-size: 1.8rem; margin-bottom: 10px; }
+    .plans-sub { color: var(--text-muted); margin-bottom: 25px; }
+
+    .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 15px;
+    }
+
+    .plan-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .plan-card:hover { transform: translateY(-4px); border-color: var(--primary); }
+    .plan-card.featured {
+      border-color: #f59e0b;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
+    }
+    .badge-free {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #f59e0b;
+      color: #111;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+
+    .plan-name { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+    .plan-price { font-size: 1.6rem; font-weight: 800; color: var(--primary); margin-bottom: 15px; }
+    .plan-price small { font-size: 0.85rem; color: var(--text-muted); font-weight: 400; }
+    .plan-specs {
+      list-style: none;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .plan-specs li strong { color: var(--text); }
+
+    .btn-buy {
+      background: #1e293b;
+      color: white;
+      text-decoration: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: 0.2s;
+      border: 1px solid #334155;
+      display: block;
+    }
+    .btn-buy:hover { background: var(--primary); color: #04101e; border-color: var(--primary); }
+    .btn-buy.active-plan {
+      background: rgba(34, 197, 94, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+      cursor: default;
+    }
   </style>
 </head>
 <body>
-  <h1>CloudPhone 24/7</h1>
-  <p class="sub">Prueba gratuita activa de 5 minutos</p>
-  <div class="mockup">
-    <div id="reloj" class="timer">05:00</div>
-    <iframe id="pantalla" src="about:blank"></iframe>
-    <div id="bloqueo" class="paywall">
-      <h3>¡Prueba Terminada!</h3>
-      <p style="margin-top: 10px; font-size: 0.8rem; color: #94a3b8;">Tu sesión de 5 minutos ha expirado. Compra acceso 24/7 sin límites.</p>
-      <a href="https://t.me/TuUsuarioDeTelegram" class="btn-buy" target="_blank">Comprar por 5€ / mes</a>
+
+  <div class="container">
+    <header>
+      <h1>IziCloud <span>Virtual PCs</span></h1>
+      <p>Accede a un ordenador completo con Windows, Google Chrome y descarga de programas desde cualquier navegador.</p>
+    </header>
+
+    <!-- Barra de control y código promo -->
+    <div class="top-bar">
+      <div id="trial-timer-container" class="timer-badge">
+        ⏱️ Tiempo restante: <span id="timer-display">05:00</span>
+      </div>
+      <div id="unlimited-badge" class="unlimited-badge">
+        ⭐ Acceso Ilimitado Activado (Plan VIP)
+      </div>
+
+      <div class="promo-box">
+        <input type="text" id="coupon-input" placeholder="Código de acceso..." />
+        <button onclick="checkCoupon()">Activar</button>
+      </div>
+    </div>
+
+    <!-- Pantalla del PC Virtual -->
+    <div id="pc-screen-container">
+      <iframe 
+        id="vnc-frame" 
+        src="https://ubiquitous-space-system-g4p4657xggr5hqqv-8080.app.github.dev/vnc.html?autoconnect=true">
+      </iframe>
+
+      <div id="lock-overlay">
+        <h2>⚠️ Prueba de 5 minutos finalizada</h2>
+        <p>Tu sesión de prueba gratuita ha caducado. Elige uno de nuestros planes de capacidad inferior para desbloquear acceso ilimitado o canjea tu código de suscripción.</p>
+        <button class="btn-buy" style="background: var(--primary); color: #000; padding: 12px 25px;" onclick="scrollToPlans()">Ver Planes Disponibles</button>
+      </div>
+    </div>
+
+    <!-- Selector de 5 Dispositivos -->
+    <h2 class="plans-title" id="planes-section">Elige tu Máquina en la Nube</h2>
+    <p class="plans-sub">A mayor capacidad de núcleos, RAM y almacenamiento, mayor velocidad de procesamiento.</p>
+
+    <div class="plans-grid">
+      <!-- 1. Plan Básico -->
+      <div class="plan-card">
+        <div>
+          <div class="plan-name">Mini Cloud</div>
+          <div class="plan-price">2.99€ <small>/semana</small></div>
+          <ul class="plan-specs">
+            <li>⚡ <strong>1 vCPU</strong> Core</li>
+            <li>🧠 <strong>4 GB</strong> RAM</li>
+            <li>💾 <strong>15 GB</strong> SSD</li>
+            <li>🌐 Navegación web</li>
+          </ul>
+        </div>
+        <a href="https://paypal.me/tu_usuario" target="_blank" class="btn-buy">Contratar</a>
+      </div>
+
+      <!-- 2. Plan Prueba 5 Min (La segunda opción) -->
+      <div class="plan-card featured">
+        <span class="badge-free">Tu Prueba Activa</span>
+        <div>
+          <div class="plan-name">Free Trial</div>
+          <div class="plan-price">0.00€ <small>/5 minutos</small></div>
+          <ul class="plan-specs">
+            <li>⚡ <strong>2 vCPU</strong> Cores</li>
+            <li>🧠 <strong>8 GB</strong> RAM</li>
+            <li>💾 <strong>32 GB</strong> Almacenamiento</li>
+            <li>🚀 Chrome & Wine .exe</li>
+          </ul>
+        </div>
+        <button class="btn-buy active-plan">En uso</button>
+      </div>
+
+      <!-- 3. Plan Pro -->
+      <div class="plan-card">
+        <div>
+          <div class="plan-name">Cloud Pro</div>
+          <div class="plan-price">6.99€ <small>/mes</small></div>
+          <ul class="plan-specs">
+            <li>⚡ <strong>4 vCPU</strong> Cores</li>
+            <li>🧠 <strong>12 GB</strong> RAM</li>
+            <li>💾 <strong>60 GB</strong> SSD NVMe</li>
+            <li>🛡️ Sesión guardada</li>
+          </ul>
+        </div>
+        <a href="https://paypal.me/tu_usuario" target="_blank" class="btn-buy">Contratar</a>
+      </div>
+
+      <!-- 4. Plan Elite -->
+      <div class="plan-card">
+        <div>
+          <div class="plan-name">Ultra Station</div>
+          <div class="plan-price">12.99€ <small>/mes</small></div>
+          <ul class="plan-specs">
+            <li>⚡ <strong>6 vCPU</strong> Cores</li>
+            <li>🧠 <strong>16 GB</strong> RAM</li>
+            <li>💾 <strong>120 GB</strong> SSD</li>
+            <li>⚡ Conexión 10 Gbps</li>
+          </ul>
+        </div>
+        <a href="https://paypal.me/tu_usuario" target="_blank" class="btn-buy">Contratar</a>
+      </div>
+
+      <!-- 5. Plan Beast -->
+      <div class="plan-card">
+        <div>
+          <div class="plan-name">Extreme Rig</div>
+          <div class="plan-price">24.99€ <small>/mes</small></div>
+          <ul class="plan-specs">
+            <li>⚡ <strong>8 vCPU</strong> Cores</li>
+            <li>🧠 <strong>32 GB</strong> RAM</li>
+            <li>💾 <strong>250 GB</strong> SSD NVMe</li>
+            <li>🔥 Máximo rendimiento</li>
+          </ul>
+        </div>
+        <a href="https://paypal.me/tu_usuario" target="_blank" class="btn-buy">Contratar</a>
+      </div>
     </div>
   </div>
 
   <script>
-    let tiempo = 300;
-    const reloj = document.getElementById('reloj');
-    const bloqueo = document.getElementById('bloqueo');
-    const pantalla = document.getElementById('pantalla');
+    const TOTAL_SECONDS = 300; // 5 minutos exactos
+    const timerDisplay = document.getElementById('timer-display');
+    const trialContainer = document.getElementById('trial-timer-container');
+    const unlimitedBadge = document.getElementById('unlimited-badge');
+    const lockOverlay = document.getElementById('lock-overlay');
+    const vncFrame = document.getElementById('vnc-frame');
 
-    const cuentaAtras = setInterval(() => {
-      tiempo--;
-      let m = Math.floor(tiempo / 60).toString().padStart(2, '0');
-      let s = (tiempo % 60).toString().padStart(2, '0');
-      reloj.textContent = `${m}:${s}`;
-      if (tiempo <= 0) {
-        clearInterval(cuentaAtras);
-        reloj.style.display = 'none';
-        pantalla.src = 'about:blank';
-        bloqueo.classList.add('active');
+    // Comprobar si ya tiene activado el código secreto
+    let isUnlimited = localStorage.getItem('izicloud_unlimited') === 'true';
+
+    if (isUnlimited) {
+      enableUnlimitedAccess();
+    } else {
+      initTimer();
+    }
+
+    function initTimer() {
+      // Leer el tiempo restante guardado o empezar en 300
+      let timeLeft = localStorage.getItem('izicloud_time_left');
+      
+      if (timeLeft === null) {
+        timeLeft = TOTAL_SECONDS;
+      } else {
+        timeLeft = parseInt(timeLeft, 10);
       }
-    }, 1000);
+
+      if (timeLeft <= 0) {
+        lockSession();
+        return;
+      }
+
+      updateDisplay(timeLeft);
+
+      const countdown = setInterval(() => {
+        if (isUnlimited) {
+          clearInterval(countdown);
+          return;
+        }
+
+        timeLeft--;
+        localStorage.setItem('izicloud_time_left', timeLeft);
+        updateDisplay(timeLeft);
+
+        if (timeLeft <= 0) {
+          clearInterval(countdown);
+          lockSession();
+        }
+      }, 1000);
+    }
+
+    function updateDisplay(seconds) {
+      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const s = (seconds % 60).toString().padStart(2, '0');
+      timerDisplay.textContent = `${m}:${s}`;
+    }
+
+    function lockSession() {
+      lockOverlay.style.display = 'flex';
+      vncFrame.src = "about:blank"; // Desconectar el streaming
+    }
+
+    function enableUnlimitedAccess() {
+      isUnlimited = true;
+      localStorage.setItem('izicloud_unlimited', 'true');
+      trialContainer.style.display = 'none';
+      unlimitedBadge.style.display = 'inline-block';
+      lockOverlay.style.display = 'none';
+      if (vncFrame.src === "about:blank" || !vncFrame.src.includes('vnc.html')) {
+        vncFrame.src = "https://ubiquitous-space-system-g4p4657xggr5hqqv-8080.app.github.dev/vnc.html?autoconnect=true";
+      }
+    }
+
+    function checkCoupon() {
+      const code = document.getElementById('coupon-input').value.trim().toLowerCase();
+      if (code === 'izielpro') {
+        enableUnlimitedAccess();
+        alert('¡Código verificado! Has desbloqueado acceso ilimitado sin cortes.');
+      } else {
+        alert('Código incorrecto o caducado.');
+      }
+    }
+
+    function scrollToPlans() {
+      document.getElementById('planes-section').scrollIntoView({ behavior: 'smooth' });
+    }
   </script>
+
 </body>
 </html>
